@@ -38,47 +38,86 @@ app.get('/', (req,res)=>{
     res.send("<h1>Hello Customers</h1>");
 });
 app.get('/api/customers',async(req,res)=>{
-    res.statusCode=200;
-    const result = await Customer.find();
-    res.json(result);
+    // console.log(await mongoose.connection.db.listCollections().toArray());
+    try{
+        res.statusCode=200;
+
+        const result = await Customer.find();
+        res.json(result);
+    }catch(e){
+        res.status(500);
+        res.send({"Error": e.message})
+        // console.log(e.message);
+    }
 });
 
-app.get('/api/customers/:name',(req,res)=>{
-    res.statusCode = 200;
-    res.send(customers.find((customer)=>customer.name==req.params.name));
+app.get('/api/customers/:id',async(req,res)=>{
+
+    const {id:customerID} = req.params;
+
+    console.log(customerID);
+
+    try{
+
+        const customer = await Customer.findById(customerID);
+        if(!customer){
+            res.status(404).json({error: "Customer not found with the given id."})
+        }else{
+            
+            res.status(200).json({customer});
+        }
+    }catch(e){
+        res.status(500).json({error:e.message})
+    }
+
+
 });
 
 app.post('/api/customers',async(req,res)=>{
-    res.statusCode=200;
     customers.push(req.body);
-    const newCustomer = new Customer({
-        name: req.body.name,
-        industry: req.body.industry
-    });
+    const newCustomer = new Customer(req.body);
 
-    await newCustomer.save();
+    try{
+
+        await newCustomer.save();
+        res.status(201).json({newCustomer});
+    }catch(e){
+        res.status(400);
+        res.send({error: e.message});
+    }
     
-    res.send("New customer added Successfully!");
+    // res.send("New customer added Successfully!");
 });
 
-app.put('/api/customers/:name',(req,res)=>{
-    res.statusCode =200;
-    const name = req.params.name;
-    console.log("name is "+name);
-    const index= customers.findIndex((std)=>std.name == name);
-    customers[index] = req.body;
-    res.send("updated " +req.body);
+app.put('/api/customers/:id',async (req,res)=>{
+
+    const {id: customerID} = req.params;
+
+    const customer = await Customer.replaceOne(
+        {_id: customerID},
+        req.body
+    );
+    res.status(201).json({success: customer.modifiedCount})
 });
 
-app.delete('/api/customers/:name',(req,res)=>{
-    delete(customers[ customers.findIndex((customer)=>customer.name==req.params.name)]);
-    res.sendStatus = 200;
-    res.send("Successfully deleted :!");
+app.delete('/api/customers/:id',async(req,res)=>{
+    const {id: customerID} = req.params;
+    try{
+        const deletedCustomer = await Customer.deleteOne({_id: customerID});
+
+        res.status(200).json({
+            deletedCount: deletedCustomer.deletedCount
+        });
+    }catch(e){
+        res.status(500).json({error: e.message})
+    }
 });
 
 app.post('/',(req,res)=>{
     res.send('This is a post req, let change something');
 });
+
+
 
 const CONNECTION = process.env.CONNECTION;
 const PORT = process.env.PORT || 3000;
